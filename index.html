@@ -16,22 +16,18 @@
 	<tr>
 		<td>
 		<div style="display:inline-block; vertical-align:top;">
-			Serial port speed: 
-			<select name="speed" id="SerialSpeed">
-				<option value="2000000">2000000</option>
+			port: 
+			<select name="port" id="term1port">
 			</select>
-			<div id="term1port"></div>
 			<button id="term1Button" type="button">Connect</button>
 			<div id="term1"></div>
 		</div>
 		</td>
 		<td>
 		<div style="display:inline-block; vertical-align:top;">
-			Serial port speed: 
-			<select name="speed" id="SerialSpeed">
-				<option value="2000000">2000000</option>
+			port: 
+			<select name="speed" id="term2port">
 			</select>
-			<div id="term2port"></div>
 			<button id="term2Button" type="button">Connect</button>
 			<div id="term2"></div>
 		</div>
@@ -40,22 +36,18 @@
 	<tr>
 		<td>
 		<div style="display:inline-block; vertical-align:top;">
-			Serial port speed: 
-			<select name="speed" id="SerialSpeed">
-				<option value="2000000">2000000</option>
+			port: 
+			<select name="speed" id="term3port">
 			</select>
-			<div id="term3port"></div>
 			<button id="term3Button" type="button">Connect</button>
 			<div id="term3"></div>
 		</div>
 		</td>
 		<td>
 		<div style="display:inline-block; vertical-align:top;">
-			Serial port speed: 
-			<select name="speed" id="SerialSpeed">
-				<option value="2000000">2000000</option>
+			port: 
+			<select name="speed" id="term4port">
 			</select>
-			<div id="term4port"></div>
 			<button id="term4Button" type="button">Connect</button>
 			<div id="term4"></div>
 		</div>
@@ -72,12 +64,13 @@
 
 <script>
 
-
-
-var term1;
-var term2;
-var term3;
-var term4;
+let term_elems = ["term1", "term2", "term3", "term4"]
+let term_btns = ["term1Button", "term2Button", "term3Button", "term4Button"]
+let term_selects = ["term1port", "term2port", "term3port", "term4port" ]
+let terms = []
+let ports = [undefined, undefined, undefined, undefined]
+let avail_ports = []
+var terms_count = 4
 
 function calculate_size(win) {
     var cols = Math.max(80, Math.min(150, (win.innerWidth - 280) / 7)) | 0;
@@ -86,49 +79,33 @@ function calculate_size(win) {
 }
 
 (function() {
-    window.onload = function() {
-    
-      var size = calculate_size(self);
-      term1 = new Terminal({
-        cols: size[0],
-        rows: size[1],
-        useStyle: true,
-        screenKeys: true,
-        cursorBlink: false
-      });
-      term1.open(document.getElementById("term1"));
-	    
-      term2 = new Terminal({
-        cols: size[0],
-        rows: size[1],
-        useStyle: true,
-        screenKeys: true,
-        cursorBlink: false
-      });
-      term2.open(document.getElementById("term2"));
-      term3 = new Terminal({
-        cols: size[0],
-        rows: size[1],
-        useStyle: true,
-        screenKeys: true,
-        cursorBlink: false
-      });
-      term3.open(document.getElementById("term3"));
-      term4 = new Terminal({
-        cols: size[0],
-        rows: size[1],
-        useStyle: true,
-        screenKeys: true,
-        cursorBlink: false
-      });
-      term4.open(document.getElementById("term4"));
+    window.onload = function() {   
+        var size = calculate_size(self);
+        refreshPorts();
+        for (let i = 0; i < terms_count; i++) {
+            var new_term = new Terminal({
+                                    cols: size[0],
+                                    rows: size[1],
+                                    useStyle: true,
+                                    screenKeys: true,
+                                    cursorBlink: false
+                                   });          
+            new_term.open(document.getElementById(term_elems[i]));
+            terms.push(new_term);
+            
+            var x = document.getElementById(term_selects[i]);            
+            for (let p = 0; p < avail_ports.length; p++) {
+                var option = document.createElement("option");
+                option.text = avail_ports[p];
+                x.add(option);
+            }
+        }
     };
+    
     window.addEventListener('resize', function() {
         var size = calculate_size(self);
         term.resize(size[0], size[1]);
-    });
-}).call(this);
-
+    });    
 
 /*
  * Web Serial API (Google Chrome)
@@ -139,34 +116,38 @@ function calculate_size(win) {
  *
  */
 
-const connectButton = document.getElementById ('SerialConnectButton');
-let port;
-
 if ('serial' in navigator) {
-  connectButton.addEventListener('click', function () {
-    if (port) {
-      term.write('\x1b[31mDisconnected from Serial Port\x1b[m\r\n');
-      port.close();
-      port = undefined;
-      connectButton.innerText = 'Connect';
+    
+    navigator.serial.getPorts()
+    for (let i = 0; i < terms_count; i++) {
+        const connectButton = document.getElementById (term_btns[i]);    
+        connectButton.addEventListener('click', function () {
+                                                if (ports[i]) {
+                                                  terms[i].write('\x1b[31mDisconnected from Serial Port\x1b[m\r\n');
+                                                  port[i].close();
+                                                  ports[i] = undefined;
+                                                  connectButton.innerText = 'Connect';
+                                                  document.getElementById(term_selects[i]).disabled = false;
+                                                }
+                                                else {
+                                                  connectButton.innerText = 'Disconnect';
+                                                  getReader(i);
+                                                }
+                                       });
 
-      document.getElementById('SerialSpeed').disabled = false;
-
+        connectButton.disabled = false;
     }
-    else {
-      connectButton.innerText = 'Disconnect';
-      getReader();
-    }
-  });
-
-  connectButton.disabled = false;
 }
 else {
   const error = document.createElement('p');
   error.innerHTML = '<p>Support for Serial Web API not enabled. Please enable it using chrome://flags/ and enable Experimental Web Platform fetures</p>';
-
 }
 
+function refreshPorts() {
+    navigator.serial.getPorts().then((ports) => {
+        avail_ports.push(ports)
+    })
+}
 
 let lineBuffer = '';
 let latestValue = 0;
@@ -182,8 +163,8 @@ async function serialWrite(data) {
 	}
 }
 
-async function getReader() {
-        port = await navigator.serial.requestPort({});
+async function getReader(term_idx) {
+    port = await navigator.serial.requestPort({});
 	var e = document.getElementById("SerialSpeed");
 	var strSpd = e.options[e.selectedIndex].value;
 
